@@ -1,0 +1,177 @@
+Version 1.5
+===========
+
+API changes:
+------------
+
+Deprecating prepend_handler in favor of before_filter, set_callback, and after_filter.
+prepend_handler and current event system stay in for a while, but won't last forever....
+
+Related to above: callback and filters must very explicitly break the chain, and it should
+only be done in very specific situations.
+
+Callbacks should be looked at as the core code, the response to an action.  They
+should be used to actually handle an event: a bot's "PRIVMSG #channel Hey there, bob" output on
+a "bob joins the channel" message.  Filters are more for behind-the-scenes stuff: responding to a
+PING, storing stats, logging, manipulating input/output, changing variables (bot's nickname on an
+:incoming_nick event), etc.
+
+A plugin could use a filter where one isn't really appropriate, and this may make sense for a
+plugin built for a very specific purpose - but the *final* program should be the only thing that
+registers the callback, because there can be only one.  When you call set_callback, any previous
+callback is lost, PERIOD.
+
+Looking at this like Rails, the callback would be the action, while filters would be... filters.
+Looking at it like wordpress, the callback is the core WP code, while the filters are your plugin
+actions.  One plugin author shouldn't be breaking another's ability to work.  Again, exceptions to
+every rule: for instance, an "ignore user" plugin could stop an event from ever reaching the
+callback.
+
+1.5 issues
+----------
+
+Though I got it working fairly well, the legacy support isn't 100% compatible with 1.4.3:
+* Reporting is now a separate module you have to include manually (or subclass IRCBot)
+* Outgoing events have been modified heavily.  They are now callbacks instead of "core"
+  functionality, and may run differently than expected.  For instance, you used to be unable to
+  override the core output of a PRIVMSG; now you can.  You used to not be able to "break the chain"
+  before an outgoing PRIVMSG command; now you can.  To keep legacy funcationality similar to how it
+  worked previously, legacy events using the prepend_handler system will *not* be able to override 
+  or break the chain for outgoing events.  But this comes at the cost of things potentially being
+  out of order from what you're used to if you're trying to mix legacy handlers and new filters.
+  The reporting module is, of course, using the new filters, so they may act strangely.
+  * The output API should be exactly the same as it used to be, so for a simple app, you may not
+    notice the difference.
+* Generally speaking, mixing legacy and new handlers will result in interesting behaviors.  Try to
+  update your app to use the new system if you want the full capabilities of the new API.
+
+How to prepare your code for 2.0:
+---------------------------------
+
+* Convert all handlers to callbacks or filters as described in the documentation (latest stable
+  version's docs are always available at http://ruby-irc-yail.nerdbucket.com/)
+* Use on_xxx, hearing_xxx, heard_xxx, saying_xxx, and said_xxx if they simplify your code
+* Handlers need only take a single parameter now, the event object itself
+* Use the documentation to determine event methods available for a given event.  In a pinch, you can use this to help see what's available:
+      $stderr.puts "Events of type #{event.type} have the following methods: #{event.public_methods(false).inspect}"
+* Remove all direct calls to handle().  For custom events, use a call to dispatch() with a Net::YAIL::CustomEvent.new(:type => :blah, ...)
+* When you need to break the event handling chain, call "event.handled!".  This name is meant to
+  alert you that it has side effects and you usually shouldn't need to call it now that reporting
+  is no longer forced on you so painfully.
+  * Note that return values from event handlers no longer hold ANY meaning
+
+Anything not well-documented, confusing, or done wrong?  Yell at me on github and maybe I'll fix it.
+
+1.4.6
+=====
+
+The from data is always present on all events, even if it has to be blank, in order to accommodate
+the edge cases where having data is expected, but it isn't there:
+    NOTICE :ERROR from foo.bar.com
+
+1.4.5
+=====
+
+Pulled fix for RFC 1459 compliance - newline should be CR-LF.
+
+1.4.4
+=====
+
+SSL support has been enhanced by code I don't fully understand, but which a helpful user suggested
+could fix the one-message-behind situation!
+
+1.4.3
+=====
+
+New
+---
+
+* Support for SSL!  This is highly experimental as I know nothing of SSL.  I'm literally trying to
+  steal the code from Ruby-IRC that does SSL and make it work with YAIL.  So far it doesn't seem to
+  be working quite right - it's always one message behind for some reason.  This means on a channel
+  with activity, it'll respond to events one message late.  On a channel without much activity, it
+  can in fact miss pings and eventually is kicked off.  Help me!
+
+1.4.2
+=====
+
+New
+---
+
+* YAIL now defaults to use Logger for all non-event logging.  Prepare for all logging to be pulled
+  out of YAIL soon, but anything that stays core will be *real* logs (debug logs for IRC messages,
+  fatal for truly critical errors, etc) instead of just STDERR prints.  You can access the log via
+  yail_object.log in order to change loglevel and such, and pass in your own logger via YAIL's
+  constructor.
+
+Changes
+-------
+
+* Specifying :loud and :silent in the constructor are NOW DEPRECATED.  These will be removed by
+  version 2, and possibly at the next minor version bump.  I hate them.  Instead, either specify
+  your own logger via the :log key in the constructor, or change your object via something like
+  `irc.log.level = ...`
+  * @loud and @silent have been renamed to discourage using those directly as a way to avoid the
+    deprecation warnings.  I will change these again, so don't rely on them!
+    * Note that if you really hate the warnings, you can of course choose not to hear them -
+      they're logged as WARN level events.
+  * The default level will be WARN.  The "loud" level is DEBUG.  The "silent" level is FATAL.
+  * Note that YAIL still uses @silent for suppressing event reports in the output API.  This is
+    because I'm a moron, and I need to keep that functionality as-is until I tear it out of the
+    library completely.  Some people who are really stupid (me) actually rely on that reporting.
+    When I tear this stuff out is when deprecation ends and full removal of those options happens.
+* Basic bot class is now in the file net/yail/irc_bot instead of net/yail/IRCBot, to better follow
+  Ruby conventions.  I've left IRCBot there for now, but I may eventually take that away, so
+  consider fixing your `requires` statements today!
+
+
+1.4.1
+=====
+
+Had some screwups here before deploying the gem, so this version was removed
+
+1.4.0
+=====
+
+New
+---
+
+* HOLY CRAP!  I never provided a topic change event?!?  Well, now it's here.  :incoming_topic_change
+  at your service.  Note that this is VERY DIFFERENT from the numeric :incoming_topic event, which
+  only tells you current topic for a channel.
+  * NOTE: if you've been handling topic changes via the miscellaneous handler, you *will* have to
+    change your code!
+* prepend_handler can now take a block instead of just a Proc object!
+* In addition to using the `start_listening` method of Net::YAIL, you can now call the "dangerous"
+  version of that method: `start_listening!`, which wraps the "safe" version, but also starts an
+  endless loop.  For extremely simple bots, this is simplifies your codebase greatly.
+* New bot example added to demonstrate a very simple case that's still pretty easy to extend and
+  configure: examples/simple/dumbbot.rb
+
+Changes
+-------
+
+* CTRL+C termination now results in a graceful termination which includes sending QUIT to the server
+* Major event handling overhaul.  Legacy apps *should* work fine, but if not, please let me know
+  by filing a ticket on github or something!
+  * For those who care, the back-end is now using a new class for handling and storing events.
+    This class is eventually going to be used for all handlers, rather than passing around a bunch
+    of arguments that are often unused.
+* README was removed in favor of two files: YAIL-RDOC for the rdoc "intro" info, and README.md for
+  a github-friendly description of the bot.
+
+Fixes
+-----
+
+* Nickname change in forced handler is now safer
+* Version information is now stored outside the main YAIL library
+* TODO updated a lot to better reflect my short-, medium-, and long-term goals
+* General update to documentation - a few grammatical fixes, some doc errors fixed, etc
+* MessageParser fixes to make it better at handling some of the edge cases, and better tests to
+  make sure it's doing what I think it's doing.
+
+1.3.5 and prior
+===============
+
+Go to github, look at the incredibly long and painful old version of CHANGELOG.  Weep.  Hate
+Nerdmaster for being such a moron.

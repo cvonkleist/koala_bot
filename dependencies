@@ -1,0 +1,2 @@
+dependencies git://github.com/djanowski/dependencies.git
+ruby-irc-yail git://github.com/Nerdmaster/ruby-irc-yail.git
