@@ -10,8 +10,6 @@ def random_line
   $koala_lines[rand($koala_lines.count)]
 end
 
-channels = []
-
 irc = Net::YAIL.new(
   :address   => server_host,
   :port      => server_port,
@@ -23,18 +21,6 @@ irc = Net::YAIL.new(
 
 irc.on_welcome do |event|
   irc.join("#skillhouse")
-end
-
-irc.on_join do |event|
-  if event.nick == irc.me
-    channels << event.channel
-  end
-end
-
-irc.on_part do |event|
-  if event.nick == irc.me
-    channels.delete(event.channel)
-  end
 end
 
 irc.on_msg do |event|
