@@ -26,7 +26,7 @@ end
 irc.on_msg do |event|
   if event.pm?
   elsif event.channel
-    if(event.message.match(%r(k.*o.*a.*l.*a)i))
+    if event.message.match(%r(k.*o.*a.*l.*a)i)
       irc.msg(event.channel, random_line)
     end
   else
