@@ -1,3 +1,19 @@
-This is just some silliness.
+## About
 
-Requires the `dependencies` gem.
+`koala_bot` is an IRC bot that sits in a channel watching for lines matching the regular expression `/k.*o.*a.*l.*a/` and responds with a random line from [a cool essay about koalas](http://textfiles.com/uploads/koalas.txt).
+
+## Usage
+
+    ruby koala_bot.rb server[:port] #channel [#channel2 ...]
+
+You probably need to do this to use the gems included in the `vendor/` directory:
+
+    ruby -rubygems -I vendor/ koala_bot.rb server[:port] #channel
+
+### Example usage
+
+    ruby koala_bot.rb chat.freenode.net #koalas
+
+## Requirements
+
+Uses [Net::YAIL](https://github.com/Nerdmaster/ruby-irc-yail) and [dependencies](https://github.com/ddollar/dependencies), but these come bundled with the bot in the `vendor/` directory.
