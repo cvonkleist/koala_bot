@@ -13,8 +13,8 @@ class Cycler
   end
 end
 
-server_host = ARGV.shift
-server_port = (ARGV.shift || 6667).to_i
+server_host, server_port = ARGV.shift.split(":")
+channels = ARGV
 
 koala_lines = Cycler.new(File.read("koalas.txt").split("\n"))
 
@@ -28,7 +28,7 @@ irc = Net::YAIL.new(
 )
 
 irc.on_welcome do |event|
-  irc.join("#skillhouse")
+  channels.each { |channel| irc.join channel }
 end
 
 irc.on_msg do |event|
