@@ -41,7 +41,7 @@ irc.on_msg do |event|
       irc.msg(event.channel, koala_lines.next)
     end
   else
-    puts "unhandled message (server?)"
+    puts "unhandled event: #{event.inspect}"
   end
 end
 
